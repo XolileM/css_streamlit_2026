@@ -22,5 +22,6 @@ st.write(f"You picked {number}")
 
 st.header("heading 1")
 
-s.header("Shuu its hot in here")
+st.header("Shuu its hot in here")
          
+
