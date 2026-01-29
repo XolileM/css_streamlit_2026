@@ -1,135 +1,73 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
+import sqlite3
+import matplotlib.pyplot as plt
+import seaborn as sns
 
-# Set page title
-st.set_page_config(page_title="Researcher Profile and STEM Data Explorer", layout="wide")
+st.set_page_config(page_title="Student Performance EDA", layout="wide")
 
-# Sidebar Menu
-st.sidebar.title("Navigation")
-menu = st.sidebar.radio(
-    "Go to:",
-    ["Researcher Profile", "Publications", "STEM Data Explorer", "Contact"],
-)
+# ---------- Load Data ----------
+conn = sqlite3.connect("student_performance.db")
+df = pd.read_sql("SELECT * FROM students", conn)
+conn.close()
 
-# Dummy STEM data
-physics_data = pd.DataFrame({
-    "Experiment": ["Alpha Decay", "Beta Decay", "Gamma Ray Analysis", "Quark Study", "Higgs Boson"],
-    "Energy (MeV)": [4.2, 1.5, 2.9, 3.4, 7.1],
-    "Date": pd.date_range(start="2024-01-01", periods=5),
-})
+st.title("📊 Student Performance Analysis Dashboard")
 
-astronomy_data = pd.DataFrame({
-    "Celestial Object": ["Mars", "Venus", "Jupiter", "Saturn", "Moon"],
-    "Brightness (Magnitude)": [-2.0, -4.6, -1.8, 0.2, -12.7],
-    "Observation Date": pd.date_range(start="2024-01-01", periods=5),
-})
+# ---------- MS vs GP ----------
+st.header("1️⃣ Pass Rate: MS vs GP")
 
-weather_data = pd.DataFrame({
-    "City": ["Cape Town", "London", "New York", "Tokyo", "Sydney"],
-    "Temperature (°C)": [25, 10, -3, 15, 30],
-    "Humidity (%)": [65, 70, 55, 80, 50],
-    "Recorded Date": pd.date_range(start="2024-01-01", periods=5),
-})
+school_pass = pd.crosstab(df["school"], df["pass_fail"])
+st.dataframe(school_pass)
 
-# Sections based on menu selection
-if menu == "Researcher Profile":
-    st.title("Researcher Profile")
-    st.sidebar.header("Profile Options")
+fig, ax = plt.subplots()
+school_pass.plot(kind="bar", ax=ax)
+plt.ylabel("Number of Students")
+st.pyplot(fig)
 
-    # Collect basic information
-    name = "Dr. Jane Doe"
-    field = "Astrophysics"
-    institution = "University of Science"
+# ---------- Scholarship ----------
+st.header("2️⃣ Scholarship Distribution")
 
-    # Display basic profile information
-    st.write(f"**Name:** {name}")
-    st.write(f"**Field of Research:** {field}")
-    st.write(f"**Institution:** {institution}")
-    
-    st.image(
-    "https://cdn.pixabay.com/photo/2015/04/23/22/00/tree-736885_1280.jpg",
-    caption="Nature (Pixabay)"
-)
+scholarship_counts = df["scholarship"].value_counts()
+st.write(scholarship_counts)
 
-elif menu == "Publications":
-    st.title("Publications")
-    st.sidebar.header("Upload and Filter")
+fig, ax = plt.subplots()
+scholarship_counts.plot(kind="pie", autopct="%1.1f%%", ax=ax)
+st.pyplot(fig)
 
-    # Upload publications file
-    uploaded_file = st.file_uploader("Upload a CSV of Publications", type="csv")
-    if uploaded_file:
-        publications = pd.read_csv(uploaded_file)
-        st.dataframe(publications)
+# ---------- Pass % by Scholarship ----------
+st.header("3️⃣ Pass Percentage: Scholarship vs No Scholarship")
 
-        # Add filtering for year or keyword
-        keyword = st.text_input("Filter by keyword", "")
-        if keyword:
-            filtered = publications[
-                publications.apply(lambda row: keyword.lower() in row.astype(str).str.lower().values, axis=1)
-            ]
-            st.write(f"Filtered Results for '{keyword}':")
-            st.dataframe(filtered)
-        else:
-            st.write("Showing all publications")
+scholarship_pass = pd.crosstab(df["scholarship"], df["pass_fail"], normalize="index") * 100
+st.dataframe(scholarship_pass)
 
-        # Publication trends
-        if "Year" in publications.columns:
-            st.subheader("Publication Trends")
-            year_counts = publications["Year"].value_counts().sort_index()
-            st.bar_chart(year_counts)
-        else:
-            st.write("The CSV does not have a 'Year' column to visualize trends.")
+fig, ax = plt.subplots()
+scholarship_pass.plot(kind="bar", ax=ax)
+plt.ylabel("Percentage")
+st.pyplot(fig)
 
-elif menu == "STEM Data Explorer":
-    st.title("STEM Data Explorer")
-    st.sidebar.header("Data Selection")
-    
-    # Tabbed view for STEM data
-    data_option = st.sidebar.selectbox(
-        "Choose a dataset to explore", 
-        ["Physics Experiments", "Astronomy Observations", "Weather Data"]
-    )
+# ---------- Travel Time Impact ----------
+st.header("4️⃣ Does Travel Time Impact Results?")
 
-    if data_option == "Physics Experiments":
-        st.write("### Physics Experiment Data")
-        st.dataframe(physics_data)
-        # Add widget to filter by Energy levels
-        energy_filter = st.slider("Filter by Energy (MeV)", 0.0, 10.0, (0.0, 10.0))
-        filtered_physics = physics_data[
-            physics_data["Energy (MeV)"].between(energy_filter[0], energy_filter[1])
-        ]
-        st.write(f"Filtered Results for Energy Range {energy_filter}:")
-        st.dataframe(filtered_physics)
+fig, ax = plt.subplots()
+sns.boxplot(data=df, x="pass_fail", y="traveltime", ax=ax)
+st.pyplot(fig)
 
-    elif data_option == "Astronomy Observations":
-        st.write("### Astronomy Observation Data")
-        st.dataframe(astronomy_data)
-        # Add widget to filter by Brightness
-        brightness_filter = st.slider("Filter by Brightness (Magnitude)", -15.0, 5.0, (-15.0, 5.0))
-        filtered_astronomy = astronomy_data[
-            astronomy_data["Brightness (Magnitude)"].between(brightness_filter[0], brightness_filter[1])
-        ]
-        st.write(f"Filtered Results for Brightness Range {brightness_filter}:")
-        st.dataframe(filtered_astronomy)
+st.info("Longer travel times show a tendency toward lower performance.")
 
-    elif data_option == "Weather Data":
-        st.write("### Weather Data")
-        st.dataframe(weather_data)
-        # Add widgets to filter by temperature and humidity
-        temp_filter = st.slider("Filter by Temperature (°C)", -10.0, 40.0, (-10.0, 40.0))
-        humidity_filter = st.slider("Filter by Humidity (%)", 0, 100, (0, 100))
-        filtered_weather = weather_data[
-            weather_data["Temperature (°C)"].between(temp_filter[0], temp_filter[1]) &
-            weather_data["Humidity (%)"].between(humidity_filter[0], humidity_filter[1])
-        ]
-        st.write(f"Filtered Results for Temperature {temp_filter} and Humidity {humidity_filter}:")
-        st.dataframe(filtered_weather)
-        
-        
+# ---------- Absenteeism Impact ----------
+st.header("5️⃣ Does Absenteeism Impact Results?")
 
-elif menu == "Contact":
-    # Add a contact section
-    st.header("Contact Information")
-    email = "jane.doe@example.com"
-    st.write(f"You can reach me at {email}.")
+fig, ax = plt.subplots()
+sns.boxplot(data=df, x="pass_fail", y="absences", ax=ax)
+st.pyplot(fig)
+
+st.info("Students with higher absences are more likely to fail.")
+
+# ---------- Study Time Impact ----------
+st.header("6️⃣ Does Study Time Impact Results?")
+
+fig, ax = plt.subplots()
+sns.boxplot(data=df, x="pass_fail", y="studytime", ax=ax)
+st.pyplot(fig)
+
+st.success("Higher study time strongly correlates with passing.")
