@@ -1,73 +1,139 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Jan 29 21:41:42 2026
+
+@author: madun
+"""
 import streamlit as st
 import pandas as pd
 import sqlite3
-import matplotlib.pyplot as plt
-import seaborn as sns
 
-st.set_page_config(page_title="Student Performance EDA", layout="wide")
+# =========================
+# PAGE CONFIG
+# =========================
+st.set_page_config(
+    page_title="Student Performance Explorer",
+    layout="wide"
+)
 
-# ---------- Load Data ----------
-conn = sqlite3.connect("student_performance.db")
-df = pd.read_sql("SELECT * FROM students", conn)
-conn.close()
+# =========================
+# SIDEBAR NAVIGATION
+# =========================
+st.sidebar.title("Navigation")
+menu = st.sidebar.radio(
+    "Go to:",
+    [
+        "Project Overview",
+        "School Insights",
+        "Scholarship Analysis",
+        "Performance Factors",
+        "Contact"
+    ]
+)
 
-st.title("📊 Student Performance Analysis Dashboard")
+# =========================
+# LOAD DATA
+# =========================
+@st.cache_data
+def load_data():
+    conn = sqlite3.connect("student_performance.db")
+    students = pd.read_sql("SELECT * FROM students_clean", conn)
+    conn.close()
+    return students
 
-# ---------- MS vs GP ----------
-st.header("1️⃣ Pass Rate: MS vs GP")
+students = load_data()
 
-school_pass = pd.crosstab(df["school"], df["pass_fail"])
-st.dataframe(school_pass)
+# =========================
+# PROJECT OVERVIEW
+# =========================
+if menu == "Project Overview":
+    st.title("🎓 Student Performance Analysis")
 
-fig, ax = plt.subplots()
-school_pass.plot(kind="bar", ax=ax)
-plt.ylabel("Number of Students")
-st.pyplot(fig)
+    st.write("""
+    This dashboard explores factors affecting student performance using
+    cleaned and transformed school data.
+    """)
 
-# ---------- Scholarship ----------
-st.header("2️⃣ Scholarship Distribution")
+    st.metric("Total Students", len(students))
+    pass_rate = (
+        students["pass_fail"].value_counts(normalize=True)["Pass"] * 100
+    )
+    st.metric("Overall Pass Rate", f"{pass_rate:.1f}%")
 
-scholarship_counts = df["scholarship"].value_counts()
-st.write(scholarship_counts)
+# =========================
+# SCHOOL INSIGHTS
+# =========================
+elif menu == "School Insights":
+    st.title("🏫 School Performance (MS vs GP)")
 
-fig, ax = plt.subplots()
-scholarship_counts.plot(kind="pie", autopct="%1.1f%%", ax=ax)
-st.pyplot(fig)
+    school_counts = (
+        students
+        .groupby(["school", "pass_fail"])
+        .size()
+        .unstack(fill_value=0)
+    )
 
-# ---------- Pass % by Scholarship ----------
-st.header("3️⃣ Pass Percentage: Scholarship vs No Scholarship")
+    st.dataframe(school_counts)
+    st.bar_chart(school_counts)
 
-scholarship_pass = pd.crosstab(df["scholarship"], df["pass_fail"], normalize="index") * 100
-st.dataframe(scholarship_pass)
+# =========================
+# SCHOLARSHIP ANALYSIS
+# =========================
+elif menu == "Scholarship Analysis":
+    st.title("🎓 Scholarship Impact")
 
-fig, ax = plt.subplots()
-scholarship_pass.plot(kind="bar", ax=ax)
-plt.ylabel("Percentage")
-st.pyplot(fig)
+    scholarship_counts = (
+        students
+        .groupby(["scholarship", "pass_fail"])
+        .size()
+        .unstack(fill_value=0)
+    )
 
-# ---------- Travel Time Impact ----------
-st.header("4️⃣ Does Travel Time Impact Results?")
+    scholarship_pct = scholarship_counts.div(
+        scholarship_counts.sum(axis=1), axis=0
+    ) * 100
 
-fig, ax = plt.subplots()
-sns.boxplot(data=df, x="pass_fail", y="traveltime", ax=ax)
-st.pyplot(fig)
+    st.dataframe(scholarship_pct.round(1))
+    st.bar_chart(scholarship_pct)
 
-st.info("Longer travel times show a tendency toward lower performance.")
+# =========================
+# PERFORMANCE FACTORS
+# =========================
+elif menu == "Performance Factors":
+    st.title("📈 Performance Factors")
 
-# ---------- Absenteeism Impact ----------
-st.header("5️⃣ Does Absenteeism Impact Results?")
+    factor = st.sidebar.selectbox(
+        "Select a factor:",
+        ["Travel Time", "Absences", "Study Time"]
+    )
 
-fig, ax = plt.subplots()
-sns.boxplot(data=df, x="pass_fail", y="absences", ax=ax)
-st.pyplot(fig)
+    if factor == "Travel Time":
+        st.write("Average travel time by outcome")
+        st.bar_chart(
+            students.groupby("pass_fail")["traveltime"].mean()
+        )
 
-st.info("Students with higher absences are more likely to fail.")
+    elif factor == "Absences":
+        st.write("Average absences by outcome")
+        st.bar_chart(
+            students.groupby("pass_fail")["absences"].mean()
+        )
 
-# ---------- Study Time Impact ----------
-st.header("6️⃣ Does Study Time Impact Results?")
+    elif factor == "Study Time":
+        st.write("Average study time by outcome")
+        st.bar_chart(
+            students.groupby("pass_fail")["studytime"].mean()
+        )
 
-fig, ax = plt.subplots()
-sns.boxplot(data=df, x="pass_fail", y="studytime", ax=ax)
-st.pyplot(fig)
+# =========================
+# CONTACT
+# =========================
+elif menu == "Contact":
+    st.title("📬 Contact")
 
-st.success("Higher study time strongly correlates with passing.")
+    st.write("""
+    **Author:** Xolile Maduna  
+    **Course:** CSS 2026 – Data Visualization  
+    **Stack:** Python | Pandas | SQLite | Streamlit
+    """)
+
