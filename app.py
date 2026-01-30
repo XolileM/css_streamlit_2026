@@ -25,7 +25,7 @@ menu = st.sidebar.radio(
     [
         "Project Overview",
         "School Insights",
-        "Scholarship Analysis",
+        "School Support Analysis",
         "Performance Factors",
         "Contact"
     ]
@@ -54,11 +54,63 @@ if menu == "Project Overview":
     cleaned and transformed school data.
     """)
 
+    # Overall metrics
     st.metric("Total Students", len(students))
-    pass_rate = (
-        students["pass_fail"].value_counts(normalize=True)["Pass"] * 100
+
+    overall_pass_rate = (
+        students["pass_fail"]
+        .value_counts(normalize=True)["Pass"] * 100
     )
-    st.metric("Overall Pass Rate", f"{pass_rate:.1f}%")
+    st.metric("Overall Pass Rate", f"{overall_pass_rate:.1f}%")
+
+    st.divider()
+
+    # =========================
+    # SCHOOL-LEVEL SUMMARY
+    # =========================
+    st.subheader("School Overview (GP vs MS)")
+
+    # Total learners per school
+    total_per_school = (
+        students
+        .groupby("school")
+        .size()
+        .rename("Total Learners")
+    )
+
+    # Pass percentage per school
+    pass_pct_per_school = (
+        students[students["pass_fail"] == "Pass"]
+        .groupby("school")
+        .size()
+        .div(total_per_school) * 100
+    ).rename("Pass %")
+
+    # School Support percentage per school
+    schoolsup_pct_per_school = (
+        students[students["schoolsupport"] == "Yes"]
+        .groupby("school")
+        .size()
+        .div(total_per_school) * 100
+    ).rename("Schoolsup %")
+
+    # Combine summary table
+    overview_table = pd.concat(
+        [
+            total_per_school,
+            pass_pct_per_school.round(1),
+            schoolsup_pct_per_school.round(1)
+        ],
+        axis=1
+    )
+
+    st.dataframe(overview_table)
+
+    # Visual comparison
+    st.subheader("Percentage Comparison by School")
+    st.bar_chart(
+        overview_table[["Pass %", "Schoolsup %"]]
+    )
 
 # =========================
 # SCHOOL INSIGHTS
@@ -77,24 +129,24 @@ elif menu == "School Insights":
     st.bar_chart(school_counts)
 
 # =========================
-# SCHOLARSHIP ANALYSIS
+# SCHOOL SUPPORT ANALYSIS
 # =========================
-elif menu == "Scholarship Analysis":
-    st.title("🎓 Scholarship Impact")
+elif menu == "School Support Analysis":
+    st.title("🎓 Schoolsuport Impact")
 
-    scholarship_counts = (
+    schoolsup_counts = (
         students
-        .groupby(["scholarship", "pass_fail"])
+        .groupby(["schoolsupport", "pass_fail"])
         .size()
         .unstack(fill_value=0)
     )
 
-    scholarship_pct = scholarship_counts.div(
-        scholarship_counts.sum(axis=1), axis=0
+    schoolsup_pct = schoolsup_counts.div(
+        schoolsup_counts.sum(axis=1), axis=0
     ) * 100
 
-    st.dataframe(scholarship_pct.round(1))
-    st.bar_chart(scholarship_pct)
+    st.dataframe(schoolsup_pct.round(1))
+    st.bar_chart(schoolsup_pct)
 
 # =========================
 # PERFORMANCE FACTORS
@@ -136,4 +188,3 @@ elif menu == "Contact":
     **Course:** CSS 2026 – Data Visualization  
     **Stack:** Python | Pandas | SQLite | Streamlit
     """)
-
