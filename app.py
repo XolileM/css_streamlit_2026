@@ -50,8 +50,8 @@ if menu == "Project Overview":
     st.title("🎓 Student Performance Analysis")
 
     st.write("""
-    This dashboard explores factors affecting student performance using
-    cleaned and transformed school data.
+    This dashboard explores factors affecting student performance
+    using cleaned and transformed school data.
     """)
 
     # Overall metrics
@@ -59,7 +59,8 @@ if menu == "Project Overview":
 
     overall_pass_rate = (
         students["pass_fail"]
-        .value_counts(normalize=True)["Pass"] * 100
+        .value_counts(normalize=True)
+        .get("Pass", 0) * 100
     )
     st.metric("Overall Pass Rate", f"{overall_pass_rate:.1f}%")
 
@@ -86,30 +87,29 @@ if menu == "Project Overview":
         .div(total_per_school) * 100
     ).rename("Pass %")
 
-    # School Support percentage per school
-    schoolsup_pct_per_school = (
+    # School support percentage per school (FIXED COLUMN)
+    schoolsupport_pct_per_school = (
         students[students["schoolsupport"] == "Yes"]
         .groupby("school")
         .size()
         .div(total_per_school) * 100
-    ).rename("Schoolsup %")
+    ).rename("School Support %")
 
-    # Combine summary table
+    # Combine summary
     overview_table = pd.concat(
         [
             total_per_school,
             pass_pct_per_school.round(1),
-            schoolsup_pct_per_school.round(1)
+            schoolsupport_pct_per_school.round(1)
         ],
         axis=1
-    )
+    ).fillna(0)
 
     st.dataframe(overview_table)
 
-    # Visual comparison
     st.subheader("Percentage Comparison by School")
     st.bar_chart(
-        overview_table[["Pass %", "Schoolsup %"]]
+        overview_table[["Pass %", "School Support %"]]
     )
 
 # =========================
@@ -132,21 +132,22 @@ elif menu == "School Insights":
 # SCHOOL SUPPORT ANALYSIS
 # =========================
 elif menu == "School Support Analysis":
-    st.title("🎓 Schoolsuport Impact")
+    st.title("🎓 School Support Impact")
 
-    schoolsup_counts = (
+    schoolsupport_counts = (
         students
         .groupby(["schoolsupport", "pass_fail"])
         .size()
         .unstack(fill_value=0)
     )
 
-    schoolsup_pct = schoolsup_counts.div(
-        schoolsup_counts.sum(axis=1), axis=0
-    ) * 100
+    schoolsupport_pct = (
+        schoolsupport_counts
+        .div(schoolsupport_counts.sum(axis=1), axis=0) * 100
+    )
 
-    st.dataframe(schoolsup_pct.round(1))
-    st.bar_chart(schoolsup_pct)
+    st.dataframe(schoolsupport_pct.round(1))
+    st.bar_chart(schoolsupport_pct)
 
 # =========================
 # PERFORMANCE FACTORS
